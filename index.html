@@ -176,7 +176,7 @@
     });
 
     // -----------------------------------------------------------
-    // 2. Timeline, Capped Blur & Pixelation Logic
+    // 2. Timeline, Pixel Cross-Fading & Smooth Blur Logic
     // -----------------------------------------------------------
     const DURATION_PER_CHAR = 20; // 20 seconds each
     const startTime = Date.now();
@@ -197,8 +197,8 @@
       requestAnimationFrame(renderLoop);
     }
 
-    // Helper to render a pixel layer offscreen with internal blur control
-    function createPixelLayer(img, factor, renderW, renderH, blurPx) {
+    // Helper to render a pixel layer offscreen with screen-space normalized blur
+    function createPixelLayer(img, factor, renderW, renderH, screenBlurPx) {
       const scaledW = Math.max(1, Math.floor(renderW * factor));
       const scaledH = Math.max(1, Math.floor(renderH * factor));
 
@@ -207,9 +207,11 @@
       tempCanvas.height = scaledH;
       const tempCtx = tempCanvas.getContext('2d');
       
-      if (blurPx > 0) {
-        // Apply controlled blur internally on the tiny canvas so it can't bleed across screen
-        tempCtx.filter = `blur(${(blurPx * factor).toFixed(1)}px)`;
+      // Convert screen-space blur to buffer-space blur so strength scales smoothly
+      const bufferBlur = screenBlurPx * (scaledW / renderW);
+
+      if (bufferBlur > 0.05) {
+        tempCtx.filter = `blur(${bufferBlur.toFixed(2)}px)`;
       }
       
       tempCtx.imageSmoothingEnabled = false;
@@ -237,11 +239,12 @@
       const upperStep = Math.ceil(stepVal) / 30;
       const blendRatio = stepVal - Math.floor(stepVal);
 
-      // Controlled Blur Logic (fades out at 17s / 85% mark)
+      // Quadratic Ease-Out Blur Decay (Smooth dissipation through ~17s / 85% mark)
       let blurPx = 0;
       const blurCutoff = 0.85; 
       if (progress < blurCutoff) {
-        blurPx = (1 - (progress / blurCutoff)) * 18; // Reduced max radius to prevent full screen color bleed
+        const blurProgress = progress / blurCutoff; // 0.0 to 1.0
+        blurPx = Math.pow(1 - blurProgress, 2) * 14; 
       }
 
       const canvasW = canvas.width;
