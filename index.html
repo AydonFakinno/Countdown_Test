@@ -176,7 +176,7 @@
     });
 
     // -----------------------------------------------------------
-    // 2. Timeline, Blur & Pixelation Logic
+    // 2. Timeline, Cross-fading Pixelation & Blur Logic
     // -----------------------------------------------------------
     const DURATION_PER_CHAR = 20; // 20 seconds each
     const startTime = Date.now();
@@ -197,6 +197,21 @@
       requestAnimationFrame(renderLoop);
     }
 
+    // Helper to render a single pixelated layer to a buffer
+    function createPixelLayer(img, factor, renderW, renderH) {
+      const scaledW = Math.max(1, Math.floor(renderW * factor));
+      const scaledH = Math.max(1, Math.floor(renderH * factor));
+
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = scaledW;
+      tempCanvas.height = scaledH;
+      const tempCtx = tempCanvas.getContext('2d');
+      tempCtx.imageSmoothingEnabled = false;
+      tempCtx.drawImage(img, 0, 0, scaledW, scaledH);
+
+      return tempCanvas;
+    }
+
     function drawPixelatedImage(imgObj, elapsed, delay) {
       if (!imgObj.loaded) return;
 
@@ -204,21 +219,28 @@
       if (charElapsed <= 0) return;
 
       const progress = Math.min(charElapsed / DURATION_PER_CHAR, 1);
-      const opacity = progress;
+      const overallOpacity = progress;
 
-      // Exponential progression for pixel sizing
+      // Exponential progression mapping (0 -> 1)
       const expProgress = (Math.pow(10, progress) - 1) / 9; 
-      const pixelFactor = 0.012 + Math.pow(expProgress, 4) * 0.988;
+      
+      // Compute continuous factor
+      const continuousFactor = 0.012 + Math.pow(expProgress, 4) * 0.988;
 
       // ---------------------------------------------------------
-      // Stronger & Longer Blur Logic:
-      // Starts at a heavy 35px blur, linearly clearing down to 0px 
-      // at progress 0.85 (~17-second mark).
+      // Cross-fade Math between Discrete Pixel Steps
       // ---------------------------------------------------------
+      // Step value determines how granular the pixel transitions are
+      const stepVal = continuousFactor * 30; 
+      const lowerStep = Math.floor(stepVal) / 30;
+      const upperStep = Math.ceil(stepVal) / 30;
+      const blendRatio = stepVal - Math.floor(stepVal); // 0.0 to 1.0 transition ratio
+
+      // Dynamic Blur Logic (35px down to 0px at ~17 seconds)
       let blurPx = 0;
-      const blurCutoff = 0.85; // 85% of 20 seconds = 17 seconds
+      const blurCutoff = 0.85; 
       if (progress < blurCutoff) {
-        blurPx = (1 - (progress / blurCutoff)) * 35; // Drops from 35px -> 0px
+        blurPx = (1 - (progress / blurCutoff)) * 35;
       }
 
       const canvasW = canvas.width;
@@ -226,7 +248,7 @@
       const imgW = imgObj.img.naturalWidth;
       const imgH = imgObj.img.naturalHeight;
 
-      // Calculate object-fit: cover coordinates
+      // Object-fit: cover coordinate calculations
       const imgRatio = imgW / imgH;
       const canvasRatio = canvasW / canvasH;
 
@@ -244,13 +266,9 @@
         offsetY = 0;
       }
 
-      const scaledW = Math.max(1, Math.floor(renderW * pixelFactor));
-      const scaledH = Math.max(1, Math.floor(renderH * pixelFactor));
-
       ctx.save();
-      ctx.globalAlpha = opacity;
-      
-      // Apply the heavier dynamic blur filter
+      ctx.globalAlpha = overallOpacity;
+
       if (blurPx > 0) {
         ctx.filter = `blur(${blurPx.toFixed(1)}px)`;
       } else {
@@ -259,16 +277,17 @@
 
       ctx.imageSmoothingEnabled = false;
 
-      // Draw downscaled image off-screen
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = scaledW;
-      tempCanvas.height = scaledH;
-      const tempCtx = tempCanvas.getContext('2d');
-      tempCtx.imageSmoothingEnabled = false;
-      tempCtx.drawImage(imgObj.img, 0, 0, scaledW, scaledH);
+      // 1. Draw Lower Resolution Step Layer
+      const layer1 = createPixelLayer(imgObj.img, lowerStep, renderW, renderH);
+      ctx.drawImage(layer1, 0, 0, layer1.width, layer1.height, offsetX, offsetY, renderW, renderH);
 
-      // Draw back to main canvas
-      ctx.drawImage(tempCanvas, 0, 0, scaledW, scaledH, offsetX, offsetY, renderW, renderH);
+      // 2. Blend Upper Resolution Step Layer over top smoothly
+      if (upperStep > lowerStep && blendRatio > 0) {
+        ctx.globalAlpha = overallOpacity * blendRatio; // Cross-fades layer 2 in
+        const layer2 = createPixelLayer(imgObj.img, upperStep, renderW, renderH);
+        ctx.drawImage(layer2, 0, 0, layer2.width, layer2.height, offsetX, offsetY, renderW, renderH);
+      }
+
       ctx.restore();
     }
 
