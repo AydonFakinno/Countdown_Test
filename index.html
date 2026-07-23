@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Stacked Reveal with Depixelation</title>
+  <title>Stacked Reveal - Pixelation Effect</title>
   <style>
     * {
       box-sizing: border-box;
@@ -48,58 +48,66 @@
     .layer-bg  { z-index: 1; }
     .layer-shl { z-index: 2; }
 
-    /* Animated Character Layers */
+    /* -----------------------------------------------------------
+       2. Pure Pixelation Magic (No Blur)
+       ----------------------------------------------------------- */
     .layer-char {
       opacity: 0;
-      filter: blur(25px) contrast(150%); /* Start heavily blurred/obscured */
-      -webkit-filter: blur(25px) contrast(150%);
-      animation-name: revealAndFocus;
-      animation-duration: 20s; /* 20 seconds total reveal per character */
+      /* Forces crisp, hard-edged pixel rendering instead of smoothing */
+      image-rendering: pixelated; 
+      image-rendering: crisp-edges;
+      
+      animation-name: pixelateReveal;
+      animation-duration: 20s; /* 20 seconds total per character */
       animation-fill-mode: forwards;
-      animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+      animation-timing-function: steps(10, end); /* Steps down the pixelation in crisp increments */
     }
 
     /* Staggered Timings */
     .layer-drd { 
       z-index: 3; 
-      animation-delay: 0s; /* Doctor Doom: 0s to 20s */
+      animation-delay: 0s; 
     }
 
     .layer-spm { 
       z-index: 4; 
-      animation-delay: 20s; /* Spider-Man: 20s to 40s */
+      animation-delay: 20s; 
     }
 
     .layer-cap { 
       z-index: 5; 
-      animation-delay: 40s; /* Captain America: 40s to 60s */
+      animation-delay: 40s; 
     }
 
     /* -----------------------------------------------------------
-       2. The Depixelize / Focus Keyframes
+       3. Pure Pixel Animation Steps
        ----------------------------------------------------------- */
-    @keyframes revealAndFocus {
+    @keyframes pixelateReveal {
       0% {
-        opacity: 0;
-        filter: blur(30px) contrast(200%);
-        -webkit-filter: blur(30px) contrast(200%);
-        transform: scale(1.05); /* Slightly enlarged/distorted */
+        opacity: 0.1;
+        /* Downscales image heavily to force blocky pixelation */
+        transform: scale(0.05); 
+        filter: contrast(140%);
       }
-      50% {
-        opacity: 0.6;
-        filter: blur(15px) contrast(130%); /* Color starts bleeding through, shape still hidden */
-        -webkit-filter: blur(15px) contrast(130%);
+      30% {
+        opacity: 0.5;
+        transform: scale(0.2); /* Medium pixelation */
+        filter: contrast(120%);
+      }
+      70% {
+        opacity: 0.85;
+        transform: scale(0.6); /* Slight pixelation */
+        filter: contrast(105%);
       }
       100% {
         opacity: 1;
-        filter: blur(0px) contrast(100%); /* Completely sharp and clear */
-        -webkit-filter: blur(0px) contrast(100%);
-        transform: scale(1);
+        transform: scale(1); /* Full resolution HD crispness */
+        filter: contrast(100%);
       }
     }
 
     /* -----------------------------------------------------------
-       3. Floating UI Container
+       4. Floating UI Container
        ----------------------------------------------------------- */
     .ui-overlay {
       position: relative;
@@ -173,7 +181,7 @@
     <img src="bg.jpg"  alt="Background" class="layer layer-bg">
     <img src="shl.png" alt="Silhouette" class="layer layer-shl">
 
-    <!-- CHARACTER LAYERS (WITH BLUR/DEPIXEL EFFECT) -->
+    <!-- CHARACTER LAYERS (PURE PIXEL EFFECT) -->
     <img src="drd.png" alt="Doctor Doom" class="layer layer-char layer-drd">
     <img src="spm.png" alt="Spider-Man" class="layer layer-char layer-spm">
     <img src="cap.png" alt="Captain America" class="layer layer-char layer-cap">
