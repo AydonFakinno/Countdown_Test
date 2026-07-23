@@ -227,18 +227,20 @@
       // Compute continuous factor
       const continuousFactor = 0.012 + Math.pow(expProgress, 4) * 0.988;
 
+      // ---------------------------------------------------------
       // Cross-fade Math between Discrete Pixel Steps
+      // ---------------------------------------------------------
+      // Step value determines how granular the pixel transitions are
       const stepVal = continuousFactor * 30; 
       const lowerStep = Math.floor(stepVal) / 30;
       const upperStep = Math.ceil(stepVal) / 30;
-      const blendRatio = stepVal - Math.floor(stepVal);
+      const blendRatio = stepVal - Math.floor(stepVal); // 0.0 to 1.0 transition ratio
 
-      // Smooth Quadratic Ease-Out Blur Logic (Fades gently to 0px at 17s / 85% mark)
+      // Dynamic Blur Logic (35px down to 0px at ~17 seconds)
       let blurPx = 0;
       const blurCutoff = 0.85; 
       if (progress < blurCutoff) {
-        const blurProgress = progress / blurCutoff;
-        blurPx = Math.pow(1 - blurProgress, 2) * 25; // 25px max initial blur
+        blurPx = (1 - (progress / blurCutoff)) * 35;
       }
 
       const canvasW = canvas.width;
@@ -265,15 +267,9 @@
       }
 
       ctx.save();
-
-      // Clip drawing area to image footprint to prevent full-screen edge bleed
-      ctx.beginPath();
-      ctx.rect(offsetX, offsetY, renderW, renderH);
-      ctx.clip();
-
       ctx.globalAlpha = overallOpacity;
 
-      if (blurPx > 0.1) {
+      if (blurPx > 0) {
         ctx.filter = `blur(${blurPx.toFixed(1)}px)`;
       } else {
         ctx.filter = 'none';
@@ -287,7 +283,7 @@
 
       // 2. Blend Upper Resolution Step Layer over top smoothly
       if (upperStep > lowerStep && blendRatio > 0) {
-        ctx.globalAlpha = overallOpacity * blendRatio; 
+        ctx.globalAlpha = overallOpacity * blendRatio; // Cross-fades layer 2 in
         const layer2 = createPixelLayer(imgObj.img, upperStep, renderW, renderH);
         ctx.drawImage(layer2, 0, 0, layer2.width, layer2.height, offsetX, offsetY, renderW, renderH);
       }
