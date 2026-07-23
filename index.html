@@ -176,7 +176,7 @@
     });
 
     // -----------------------------------------------------------
-    // 2. Timeline, Pixel Cross-Fading & Smooth Blur Logic
+    // 2. Timeline, Cross-fading Pixelation & Blur Logic
     // -----------------------------------------------------------
     const DURATION_PER_CHAR = 20; // 20 seconds each
     const startTime = Date.now();
@@ -197,8 +197,8 @@
       requestAnimationFrame(renderLoop);
     }
 
-    // Helper to render a pixel layer offscreen with screen-space normalized blur
-    function createPixelLayer(img, factor, renderW, renderH, screenBlurPx) {
+    // Helper to render a single pixelated layer to a buffer
+    function createPixelLayer(img, factor, renderW, renderH) {
       const scaledW = Math.max(1, Math.floor(renderW * factor));
       const scaledH = Math.max(1, Math.floor(renderH * factor));
 
@@ -206,14 +206,6 @@
       tempCanvas.width = scaledW;
       tempCanvas.height = scaledH;
       const tempCtx = tempCanvas.getContext('2d');
-      
-      // Convert screen-space blur to buffer-space blur so strength scales smoothly
-      const bufferBlur = screenBlurPx * (scaledW / renderW);
-
-      if (bufferBlur > 0.05) {
-        tempCtx.filter = `blur(${bufferBlur.toFixed(2)}px)`;
-      }
-      
       tempCtx.imageSmoothingEnabled = false;
       tempCtx.drawImage(img, 0, 0, scaledW, scaledH);
 
@@ -231,20 +223,24 @@
 
       // Exponential progression mapping (0 -> 1)
       const expProgress = (Math.pow(10, progress) - 1) / 9; 
+      
+      // Compute continuous factor
       const continuousFactor = 0.012 + Math.pow(expProgress, 4) * 0.988;
 
-      // Discrete step cross-fade
+      // ---------------------------------------------------------
+      // Cross-fade Math between Discrete Pixel Steps
+      // ---------------------------------------------------------
+      // Step value determines how granular the pixel transitions are
       const stepVal = continuousFactor * 30; 
       const lowerStep = Math.floor(stepVal) / 30;
       const upperStep = Math.ceil(stepVal) / 30;
-      const blendRatio = stepVal - Math.floor(stepVal);
+      const blendRatio = stepVal - Math.floor(stepVal); // 0.0 to 1.0 transition ratio
 
-      // Quadratic Ease-Out Blur Decay (Smooth dissipation through ~17s / 85% mark)
+      // Dynamic Blur Logic (35px down to 0px at ~17 seconds)
       let blurPx = 0;
       const blurCutoff = 0.85; 
       if (progress < blurCutoff) {
-        const blurProgress = progress / blurCutoff; // 0.0 to 1.0
-        blurPx = Math.pow(1 - blurProgress, 2) * 14; 
+        blurPx = (1 - (progress / blurCutoff)) * 35;
       }
 
       const canvasW = canvas.width;
@@ -252,7 +248,7 @@
       const imgW = imgObj.img.naturalWidth;
       const imgH = imgObj.img.naturalHeight;
 
-      // Object-fit: cover coordinates
+      // Object-fit: cover coordinate calculations
       const imgRatio = imgW / imgH;
       const canvasRatio = canvasW / canvasH;
 
@@ -272,16 +268,23 @@
 
       ctx.save();
       ctx.globalAlpha = overallOpacity;
+
+      if (blurPx > 0) {
+        ctx.filter = `blur(${blurPx.toFixed(1)}px)`;
+      } else {
+        ctx.filter = 'none';
+      }
+
       ctx.imageSmoothingEnabled = false;
 
-      // Draw Lower Step
-      const layer1 = createPixelLayer(imgObj.img, lowerStep, renderW, renderH, blurPx);
+      // 1. Draw Lower Resolution Step Layer
+      const layer1 = createPixelLayer(imgObj.img, lowerStep, renderW, renderH);
       ctx.drawImage(layer1, 0, 0, layer1.width, layer1.height, offsetX, offsetY, renderW, renderH);
 
-      // Blend Upper Step over top
+      // 2. Blend Upper Resolution Step Layer over top smoothly
       if (upperStep > lowerStep && blendRatio > 0) {
-        ctx.globalAlpha = overallOpacity * blendRatio;
-        const layer2 = createPixelLayer(imgObj.img, upperStep, renderW, renderH, blurPx);
+        ctx.globalAlpha = overallOpacity * blendRatio; // Cross-fades layer 2 in
+        const layer2 = createPixelLayer(imgObj.img, upperStep, renderW, renderH);
         ctx.drawImage(layer2, 0, 0, layer2.width, layer2.height, offsetX, offsetY, renderW, renderH);
       }
 
