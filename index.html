@@ -3,248 +3,177 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>The Reveal Countdown</title>
+  <title>Stacked Reveal</title>
   <style>
-    /* -----------------------------------------------------------
-       1. Base Styling (The Look & Feel)
-       ----------------------------------------------------------- */
-    body {
+    * {
+      box-sizing: border-box;
       margin: 0;
       padding: 0;
-      font-family: system-ui, -apple-system, sans-serif;
-      background-color: #121212; /* Dark background */
+    }
+
+    body {
+      background-color: #0d0d0d;
       color: #ffffff;
+      font-family: system-ui, -apple-system, sans-serif;
+      min-height: 100vh;
+      overflow: hidden;
       display: flex;
-      flex-direction: column;
       justify-content: center;
       align-items: center;
-      min-height: 100vh;
-      text-align: center;
-      overflow: hidden; /* Prevents scrollbars during animation */
-    }
-
-    h1 {
-      font-size: 2.5rem;
-      margin-bottom: 2rem;
-      color: #e0e0e0;
-      transition: opacity 1s ease; /* Smoothly fades out */
     }
 
     /* -----------------------------------------------------------
-       2. Countdown Timer Styling (Pre-Reveal)
+       1. The Stacked Image Stage
        ----------------------------------------------------------- */
-    .countdown-container {
+    .stage-container {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
       display: flex;
-      gap: 1.5rem;
       justify-content: center;
-      transition: opacity 1s ease, transform 1s ease; /* Smooth fade/shrink out */
+      align-items: center;
     }
 
-    .time-box {
-      background: #1e1e1e;
-      border: 1px solid #333;
-      border-radius: 12px;
-      padding: 1.5rem;
-      min-width: 100px;
-      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.5);
-    }
-
-    .number {
-      font-size: 3rem;
-      font-weight: bold;
-      color: #00e5ff; /* Cyan accent */
-    }
-
-    .label {
-      font-size: 0.9rem;
-      text-transform: uppercase;
-      letter-spacing: 1.5px;
-      color: #aaa;
-      margin-top: 0.5rem;
-    }
-
-    /* -----------------------------------------------------------
-       3. The Reveal/Surprise Section (Post-Reveal)
-       ----------------------------------------------------------- */
-    #reveal-section {
-      display: none; /* Hidden by default, JS reveals it */
+    /* All layer images stretch to fit full stage and sit on top of each other */
+    .layer {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      justify-content: center;
-      align-items: center;
-      flex-direction: column;
-      opacity: 0; /* Starts completely invisible for the fade-in */
-      transition: opacity 4s ease-in-out; /* Controls the overall 4-second FADE IN speed */
-      z-index: 10;
+      object-fit: cover; /* Keeps proportions clean */
+      pointer-events: none; /* Allows clicks/scans to go through */
     }
 
-    /* This class is added by JS to trigger the overall fade-in */
-    #reveal-section.visible {
-      display: flex;
-      opacity: 1;
-    }
-
-    /* The Collage Container */
-    .collage-container {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); /* Responsive grid */
-      gap: 20px;
-      width: 90%;
-      max-width: 1200px;
-      padding: 20px;
-    }
-
-    .collage-image {
-      width: 100%;
-      height: 300px; /* Fixed height for consistency, adjusts width */
-      object-fit: cover; /* Images cover the area without stretching */
-      border-radius: 15px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7);
-      border: 3px solid #1e1e1e;
-    }
+    /* Layer Stacking Order (z-index) */
+    .layer-bg  { z-index: 1; }
+    .layer-shl { z-index: 2; }
+    .layer-drd { z-index: 3; }
+    .layer-spm { z-index: 4; }
+    .layer-cap { z-index: 5; }
 
     /* -----------------------------------------------------------
-       4. The *Magic* Blurry Overlay
+       2. Floating UI Container (Sitting on top of all layers)
        ----------------------------------------------------------- */
-    #blur-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      /* THE BLUR EFFECT: Starts heavy (25px) and unreadable */
-      backdrop-filter: blur(25px); 
-      -webkit-backdrop-filter: blur(25px); /* Safari support */
-      
-      background-color: rgba(18, 18, 18, 0.5); /* Slight dark tint over images */
-      z-index: 20; /* Sits directly in front of the collage */
-      
-      pointer-events: none; /* Clicks pass through the overlay */
-      
-      /* THIS CONTROLS THE BLUR REMOVAL SPEED (Slower than the overall fade-in) */
-      transition: backdrop-filter 8s ease-in-out, -webkit-backdrop-filter 8s ease-in-out, background-color 8s ease; 
+    .ui-overlay {
+      position: relative;
+      z-index: 10; /* Above all images */
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+      background: rgba(0, 0, 0, 0.4);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 20px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
     }
 
-    /* This class is added by JS to trigger the slow UN-BLURRING */
-    #blur-overlay.clear {
-      backdrop-filter: blur(0px); /* Becomes perfectly clear */
-      -webkit-backdrop-filter: blur(0px);
-      background-color: rgba(18, 18, 18, 0); /* Tint also disappears */
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 1.5rem;
+      letter-spacing: 1px;
+      color: #f0f0f0;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.8);
     }
 
+    .countdown-container {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .time-box {
+      background: rgba(20, 20, 20, 0.85);
+      border: 1px solid #333;
+      border-radius: 12px;
+      padding: 1.2rem;
+      min-width: 85px;
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+    }
+
+    .number {
+      font-size: 2.5rem;
+      font-weight: bold;
+      color: #00e5ff;
+      text-shadow: 0 0 12px rgba(0, 229, 255, 0.4);
+    }
+
+    .label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #aaa;
+      margin-top: 0.4rem;
+    }
+
+    .message {
+      font-size: 2.2rem;
+      font-weight: bold;
+      color: #00e676;
+      display: none;
+      text-shadow: 0 0 15px rgba(0, 230, 118, 0.5);
+    }
   </style>
 </head>
 <body>
 
-  <!-- =========================================================
-       Pre-Reveal: Title & Countdown
-       ========================================================= -->
-  <h1 id="main-title">A special surprise is coming...</h1>
+  <div class="stage-container">
+    <!-- STACKED LAYERS (ORDER: BG -> SHL -> DRD -> SPM -> CAP) -->
+    <img src="bg.jpg"  alt="Background" class="layer layer-bg">
+    <img src="shl.png" alt="Silhouette" class="layer layer-shl">
+    <img src="drd.png" alt="Doctor Doom" class="layer layer-drd">
+    <img src="spm.png" alt="Spider-Man" class="layer layer-spm">
+    <img src="cap.png" alt="Captain America" class="layer layer-cap">
 
-  <div class="countdown-container" id="countdown">
-    <div class="time-box">
-      <div class="number" id="days">00</div>
-      <div class="label">Days</div>
-    </div>
-    <div class="time-box">
-      <div class="number" id="hours">00</div>
-      <div class="label">Hours</div>
-    </div>
-    <div class="time-box">
-      <div class="number" id="minutes">00</div>
-      <div class="label">Minutes</div>
-    </div>
-    <div class="time-box">
-      <div class="number" id="seconds">00</div>
-      <div class="label">Seconds</div>
+    <!-- FLOATING UI ON TOP -->
+    <div class="ui-overlay">
+      <h1 id="title">A Waiting Game...</h1>
+
+      <div class="countdown-container" id="countdown">
+        <div class="time-box">
+          <div class="number" id="minutes">00</div>
+          <div class="label">Minutes</div>
+        </div>
+        <div class="time-box">
+          <div class="number" id="seconds">00</div>
+          <div class="label">Seconds</div>
+        </div>
+      </div>
+
+      <div class="message" id="finished-message">ASSEMBLED! 💥</div>
     </div>
   </div>
-
-  <!-- =========================================================
-       Post-Reveal: The Surprise Collage
-       ========================================================= -->
-  <div id="reveal-section">
-    <!-- Optional: Add a title above the collage -->
-    <h2 style="font-size: 3rem; color: #00e676; margin-bottom: 30px;">Happy Birthday, Arnold! 🎉</h2>
-    
-    <div class="collage-container">
-      <!-- REPLACE THE 'src' LINKS BELOW WITH YOUR ACTUAL IMAGE URLS -->
-      <!-- Make sure your images are Public (hosted on Imgur, Google Photos link, etc.) -->
-      <img src="https://via.placeholder.com/600x400/00e5ff/ffffff?text=Image+1" alt="Memorable moment 1" class="collage-image">
-      <img src="https://via.placeholder.com/600x400/00e676/ffffff?text=Image+2" alt="Memorable moment 2" class="collage-image">
-      <img src="https://via.placeholder.com/600x400/ff3366/ffffff?text=Image+3" alt="Memorable moment 3" class="collage-image">
-      <img src="https://via.placeholder.com/600x400/ffd700/ffffff?text=Image+4" alt="Memorable moment 4" class="collage-image">
-    </div>
-  </div>
-
-  <!-- THE INVISIBLE BLURRY LENS (Activated by JS) -->
-  <div id="blur-overlay"></div>
 
   <script>
-    /* =========================================================
-       1. Setup: Define Your Targets
-       ========================================================= */
-    // A. TEST MODE (Set to 30 seconds from now)
-    const targetDate = new Date(Date.now() + 30 * 1000).getTime(); 
+    // Test countdown set to 1 minute from load
+    const targetDate = new Date(Date.now() + 1 * 60 * 1000).getTime();
 
-    // B. PRODUCTION MODE (Uncomment and set your real date, then comment out Test Mode above)
-    // const targetDate = new Date("2026-12-31T00:00:00").getTime(); 
-
-    /* =========================================================
-       2. The Countdown Logic
-       ========================================================= */
     function updateCountdown() {
       const now = new Date().getTime();
       const distance = targetDate - now;
 
-      // When the countdown finishes...
       if (distance <= 0) {
+        document.getElementById("countdown").style.display = "none";
+        document.getElementById("title").style.display = "none";
+        document.getElementById("finished-message").style.display = "block";
         clearInterval(timerInterval);
-        triggerReveal(); // Call the special reveal function
         return;
       }
 
-      // Time Calculations
-      const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
       const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((distance % (1000 * 60)) / 1000);
 
-      // Update the HTML numbers
-      document.getElementById("days").innerText = String(days).padStart(2, '0');
-      document.getElementById("hours").innerText = String(hours).padStart(2, '0');
       document.getElementById("minutes").innerText = String(minutes).padStart(2, '0');
       document.getElementById("seconds").innerText = String(seconds).padStart(2, '0');
     }
 
-    /* =========================================================
-       3. THE REVEAL MAGIC (The New Stuff!)
-       ========================================================= */
-    function triggerReveal() {
-      // 1. Instantly hide the old title and countdown
-      document.getElementById("main-title").style.opacity = '0';
-      document.getElementById("countdown").style.opacity = '0';
-      document.getElementById("countdown").style.transform = 'scale(0.8)'; // Optional shrink effect
-
-      // 2. Introduce the Surprise Section (Starts invisible, fades in over 4s)
-      const revealSection = document.getElementById("reveal-section");
-      revealSection.classList.add("visible");
-
-      // 3. Start the dramatic UN-BLURRING process
-      // We start this 1 second after the main reveal begins for better effect
-      setTimeout(() => {
-        const blurOverlay = document.getElementById("blur-overlay");
-        blurOverlay.classList.add("clear"); // This triggers the slow 8-second blur removal
-      }, 1000); // 1-second delay before un-blurring starts
-    }
-
-    // Initialize and run the timer every second
     const timerInterval = setInterval(updateCountdown, 1000);
-    updateCountdown(); // Run immediately so 00s don't flash
-
+    updateCountdown();
   </script>
 </body>
 </html>
