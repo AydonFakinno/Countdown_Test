@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Stacked Reveal - Pixelation Effect</title>
+  <title>Pixelation Reveal Stage</title>
   <style>
     * {
       box-sizing: border-box;
@@ -22,9 +22,6 @@
       align-items: center;
     }
 
-    /* -----------------------------------------------------------
-       1. The Stacked Image Stage
-       ----------------------------------------------------------- */
     .stage-container {
       position: relative;
       width: 100vw;
@@ -44,71 +41,21 @@
       pointer-events: none;
     }
 
-    /* Base Layers */
     .layer-bg  { z-index: 1; }
     .layer-shl { z-index: 2; }
 
-    /* -----------------------------------------------------------
-       2. Pure Pixelation Magic (No Blur)
-       ----------------------------------------------------------- */
-    .layer-char {
-      opacity: 0;
-      /* Forces crisp, hard-edged pixel rendering instead of smoothing */
-      image-rendering: pixelated; 
-      image-rendering: crisp-edges;
-      
-      animation-name: pixelateReveal;
-      animation-duration: 20s; /* 20 seconds total per character */
-      animation-fill-mode: forwards;
-      animation-timing-function: steps(10, end); /* Steps down the pixelation in crisp increments */
+    /* Canvas for pixelated character rendering */
+    #character-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 3;
+      pointer-events: none;
     }
 
-    /* Staggered Timings */
-    .layer-drd { 
-      z-index: 3; 
-      animation-delay: 0s; 
-    }
-
-    .layer-spm { 
-      z-index: 4; 
-      animation-delay: 20s; 
-    }
-
-    .layer-cap { 
-      z-index: 5; 
-      animation-delay: 40s; 
-    }
-
-    /* -----------------------------------------------------------
-       3. Pure Pixel Animation Steps
-       ----------------------------------------------------------- */
-    @keyframes pixelateReveal {
-      0% {
-        opacity: 0.1;
-        /* Downscales image heavily to force blocky pixelation */
-        transform: scale(0.05); 
-        filter: contrast(140%);
-      }
-      30% {
-        opacity: 0.5;
-        transform: scale(0.2); /* Medium pixelation */
-        filter: contrast(120%);
-      }
-      70% {
-        opacity: 0.85;
-        transform: scale(0.6); /* Slight pixelation */
-        filter: contrast(105%);
-      }
-      100% {
-        opacity: 1;
-        transform: scale(1); /* Full resolution HD crispness */
-        filter: contrast(100%);
-      }
-    }
-
-    /* -----------------------------------------------------------
-       4. Floating UI Container
-       ----------------------------------------------------------- */
+    /* Floating UI Container */
     .ui-overlay {
       position: relative;
       z-index: 10;
@@ -181,10 +128,8 @@
     <img src="bg.jpg"  alt="Background" class="layer layer-bg">
     <img src="shl.png" alt="Silhouette" class="layer layer-shl">
 
-    <!-- CHARACTER LAYERS (PURE PIXEL EFFECT) -->
-    <img src="drd.png" alt="Doctor Doom" class="layer layer-char layer-drd">
-    <img src="spm.png" alt="Spider-Man" class="layer layer-char layer-spm">
-    <img src="cap.png" alt="Captain America" class="layer layer-char layer-cap">
+    <!-- CANVAS WHERE PIXELATED CHARACTERS ARE DRAWN -->
+    <canvas id="character-canvas"></canvas>
 
     <!-- FLOATING UI ON TOP -->
     <div class="ui-overlay">
@@ -206,7 +151,101 @@
   </div>
 
   <script>
-    // 60-second timer for testing (20s per character)
+    // -----------------------------------------------------------
+    // 1. Setup Canvas & Load Character Images
+    // -----------------------------------------------------------
+    const canvas = document.getElementById('character-canvas');
+    const ctx = canvas.getContext('2d');
+
+    // Turn off smoothing for crisp retro pixels
+    ctx.imageSmoothingEnabled = false;
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Image loading setup
+    const images = {
+      drd: { src: 'drd.png', img: new Image(), loaded: false },
+      spm: { src: 'spm.png', img: new Image(), loaded: false },
+      cap: { src: 'cap.png', img: new Image(), loaded: false }
+    };
+
+    Object.keys(images).forEach(key => {
+      images[key].img.src = images[key].src;
+      images[key].img.onload = () => images[key].loaded = true;
+    });
+
+    // -----------------------------------------------------------
+    // 2. Timeline & Pixelation Logic
+    // -----------------------------------------------------------
+    const DURATION_PER_CHAR = 20; // 20 seconds each
+    const startTime = Date.now();
+
+    function renderLoop() {
+      const elapsed = (Date.now() - startTime) / 1000; // time in seconds
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Render Dr. Doom (0s -> 20s)
+      drawPixelatedImage(images.drd, elapsed, 0);
+
+      // Render Spider-Man (20s -> 40s)
+      drawPixelatedImage(images.spm, elapsed, 20);
+
+      // Render Captain America (40s -> 60s)
+      drawPixelatedImage(images.cap, elapsed, 40);
+
+      requestAnimationFrame(renderLoop);
+    }
+
+    function drawPixelatedImage(imgObj, elapsed, delay) {
+      if (!imgObj.loaded) return;
+
+      const charElapsed = elapsed - delay;
+      if (charElapsed <= 0) return; // Not started yet
+
+      // Progress goes from 0.0 to 1.0 over 20 seconds
+      const progress = Math.min(charElapsed / DURATION_PER_CHAR, 1);
+
+      // Fade in opacity
+      const opacity = progress;
+
+      // Pixelation factor: Starts at 0.02 (huge 50px blocks) and shrinks down to 1.0 (crisp HD pixels)
+      const pixelFactor = 0.02 + Math.pow(progress, 3) * 0.98;
+
+      const w = canvas.width;
+      const h = canvas.height;
+
+      // Low-res render size
+      const scaledW = Math.max(1, Math.floor(w * pixelFactor));
+      const scaledH = Math.max(1, Math.floor(h * pixelFactor));
+
+      ctx.save();
+      ctx.globalAlpha = opacity;
+      ctx.imageSmoothingEnabled = false;
+
+      // Step 1: Draw downscaled image off-screen
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = scaledW;
+      tempCanvas.height = scaledH;
+      const tempCtx = tempCanvas.getContext('2d');
+      tempCtx.imageSmoothingEnabled = false;
+      tempCtx.drawImage(imgObj.img, 0, 0, scaledW, scaledH);
+
+      // Step 2: Draw back to full screen canvas (forces crisp blocky pixels)
+      ctx.drawImage(tempCanvas, 0, 0, scaledW, scaledH, 0, 0, w, h);
+      ctx.restore();
+    }
+
+    // Start render loop
+    requestAnimationFrame(renderLoop);
+
+    // -----------------------------------------------------------
+    // 3. Countdown Timer
+    // -----------------------------------------------------------
     const targetDate = new Date(Date.now() + 1 * 60 * 1000).getTime();
 
     function updateCountdown() {
