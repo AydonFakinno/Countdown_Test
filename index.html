@@ -157,9 +157,6 @@
     const canvas = document.getElementById('character-canvas');
     const ctx = canvas.getContext('2d');
 
-    // Turn off smoothing for crisp retro pixels
-    ctx.imageSmoothingEnabled = false;
-
     function resizeCanvas() {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
@@ -167,7 +164,6 @@
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
 
-    // Image loading setup
     const images = {
       drd: { src: 'drd.png', img: new Image(), loaded: false },
       spm: { src: 'spm.png', img: new Image(), loaded: false },
@@ -180,13 +176,13 @@
     });
 
     // -----------------------------------------------------------
-    // 2. Timeline & Pixelation Logic
+    // 2. Timeline & Aspect Ratio Aware Pixelation Logic
     // -----------------------------------------------------------
     const DURATION_PER_CHAR = 20; // 20 seconds each
     const startTime = Date.now();
 
     function renderLoop() {
-      const elapsed = (Date.now() - startTime) / 1000; // time in seconds
+      const elapsed = (Date.now() - startTime) / 1000;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       // Render Dr. Doom (0s -> 20s)
@@ -205,23 +201,40 @@
       if (!imgObj.loaded) return;
 
       const charElapsed = elapsed - delay;
-      if (charElapsed <= 0) return; // Not started yet
+      if (charElapsed <= 0) return;
 
-      // Progress goes from 0.0 to 1.0 over 20 seconds
       const progress = Math.min(charElapsed / DURATION_PER_CHAR, 1);
-
-      // Fade in opacity
       const opacity = progress;
 
-      // Pixelation factor: Starts at 0.02 (huge 50px blocks) and shrinks down to 1.0 (crisp HD pixels)
+      // Pixelation factor: Exponential progression for smooth reduction
       const pixelFactor = 0.02 + Math.pow(progress, 3) * 0.98;
 
-      const w = canvas.width;
-      const h = canvas.height;
+      const canvasW = canvas.width;
+      const canvasH = canvas.height;
+      const imgW = imgObj.img.naturalWidth;
+      const imgH = imgObj.img.naturalHeight;
 
-      // Low-res render size
-      const scaledW = Math.max(1, Math.floor(w * pixelFactor));
-      const scaledH = Math.max(1, Math.floor(h * pixelFactor));
+      // Calculate object-fit: cover coordinates to preserve aspect ratio
+      const imgRatio = imgW / imgH;
+      const canvasRatio = canvasW / canvasH;
+
+      let renderW, renderH, offsetX, offsetY;
+
+      if (canvasRatio > imgRatio) {
+        renderW = canvasW;
+        renderH = canvasW / imgRatio;
+        offsetX = 0;
+        offsetY = (canvasH - renderH) / 2;
+      } else {
+        renderW = canvasH * imgRatio;
+        renderH = canvasH;
+        offsetX = (canvasW - renderW) / 2;
+        offsetY = 0;
+      }
+
+      // Calculate downscaled sizes while preserving original proportions
+      const scaledW = Math.max(1, Math.floor(renderW * pixelFactor));
+      const scaledH = Math.max(1, Math.floor(renderH * pixelFactor));
 
       ctx.save();
       ctx.globalAlpha = opacity;
@@ -235,12 +248,11 @@
       tempCtx.imageSmoothingEnabled = false;
       tempCtx.drawImage(imgObj.img, 0, 0, scaledW, scaledH);
 
-      // Step 2: Draw back to full screen canvas (forces crisp blocky pixels)
-      ctx.drawImage(tempCanvas, 0, 0, scaledW, scaledH, 0, 0, w, h);
+      // Step 2: Draw back onto main canvas scaled to fit the screen without stretching
+      ctx.drawImage(tempCanvas, 0, 0, scaledW, scaledH, offsetX, offsetY, renderW, renderH);
       ctx.restore();
     }
 
-    // Start render loop
     requestAnimationFrame(renderLoop);
 
     // -----------------------------------------------------------
