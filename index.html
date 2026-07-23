@@ -176,7 +176,7 @@
     });
 
     // -----------------------------------------------------------
-    // 2. Timeline & Aspect Ratio Aware Pixelation Logic
+    // 2. Timeline & Exponential Pixelation Logic
     // -----------------------------------------------------------
     const DURATION_PER_CHAR = 20; // 20 seconds each
     const startTime = Date.now();
@@ -204,17 +204,22 @@
       if (charElapsed <= 0) return;
 
       const progress = Math.min(charElapsed / DURATION_PER_CHAR, 1);
+      
+      // Opacity fades in steadily
       const opacity = progress;
 
-      // Pixelation factor: Exponential progression for smooth reduction
-      const pixelFactor = 0.02 + Math.pow(progress, 3) * 0.98;
+      // Exponential progression: 
+      // Stays heavily pixelated (~0.012) for most of the duration, 
+      // then rapidly clears up in the final ~10-15% of the timeframe.
+      const expProgress = (Math.pow(10, progress) - 1) / 9; 
+      const pixelFactor = 0.012 + Math.pow(expProgress, 4) * 0.988;
 
       const canvasW = canvas.width;
       const canvasH = canvas.height;
       const imgW = imgObj.img.naturalWidth;
       const imgH = imgObj.img.naturalHeight;
 
-      // Calculate object-fit: cover coordinates to preserve aspect ratio
+      // Calculate object-fit: cover coordinates
       const imgRatio = imgW / imgH;
       const canvasRatio = canvasW / canvasH;
 
@@ -232,7 +237,6 @@
         offsetY = 0;
       }
 
-      // Calculate downscaled sizes while preserving original proportions
       const scaledW = Math.max(1, Math.floor(renderW * pixelFactor));
       const scaledH = Math.max(1, Math.floor(renderH * pixelFactor));
 
@@ -240,7 +244,7 @@
       ctx.globalAlpha = opacity;
       ctx.imageSmoothingEnabled = false;
 
-      // Step 1: Draw downscaled image off-screen
+      // Draw downscaled image off-screen
       const tempCanvas = document.createElement('canvas');
       tempCanvas.width = scaledW;
       tempCanvas.height = scaledH;
@@ -248,7 +252,7 @@
       tempCtx.imageSmoothingEnabled = false;
       tempCtx.drawImage(imgObj.img, 0, 0, scaledW, scaledH);
 
-      // Step 2: Draw back onto main canvas scaled to fit the screen without stretching
+      // Draw back to main canvas maintaining aspect ratio
       ctx.drawImage(tempCanvas, 0, 0, scaledW, scaledH, offsetX, offsetY, renderW, renderH);
       ctx.restore();
     }
