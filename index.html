@@ -211,13 +211,14 @@
       const pixelFactor = 0.012 + Math.pow(expProgress, 4) * 0.988;
 
       // ---------------------------------------------------------
-      // Dynamic Blur Logic:
-      // Starts at 15px blur, reduces to 0px at half-way (10s mark)
+      // Stronger & Longer Blur Logic:
+      // Starts at a heavy 35px blur, linearly clearing down to 0px 
+      // at progress 0.85 (~17-second mark).
       // ---------------------------------------------------------
       let blurPx = 0;
-      if (progress < 0.5) {
-        // Linearly drops from 15px at progress 0.0 to 0px at progress 0.5
-        blurPx = (1 - (progress / 0.5)) * 15;
+      const blurCutoff = 0.85; // 85% of 20 seconds = 17 seconds
+      if (progress < blurCutoff) {
+        blurPx = (1 - (progress / blurCutoff)) * 35; // Drops from 35px -> 0px
       }
 
       const canvasW = canvas.width;
@@ -249,7 +250,7 @@
       ctx.save();
       ctx.globalAlpha = opacity;
       
-      // Apply the dynamic blur filter to the main canvas context
+      // Apply the heavier dynamic blur filter
       if (blurPx > 0) {
         ctx.filter = `blur(${blurPx.toFixed(1)}px)`;
       } else {
@@ -258,7 +259,7 @@
 
       ctx.imageSmoothingEnabled = false;
 
-      // Step 1: Draw downscaled image off-screen
+      // Draw downscaled image off-screen
       const tempCanvas = document.createElement('canvas');
       tempCanvas.width = scaledW;
       tempCanvas.height = scaledH;
@@ -266,7 +267,7 @@
       tempCtx.imageSmoothingEnabled = false;
       tempCtx.drawImage(imgObj.img, 0, 0, scaledW, scaledH);
 
-      // Step 2: Draw back to main canvas with aspect ratio + blur applied
+      // Draw back to main canvas
       ctx.drawImage(tempCanvas, 0, 0, scaledW, scaledH, offsetX, offsetY, renderW, renderH);
       ctx.restore();
     }
