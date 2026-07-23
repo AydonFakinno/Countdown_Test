@@ -34,30 +34,56 @@
       align-items: center;
     }
 
-    /* All layer images stretch to fit full stage and sit on top of each other */
+    /* All layer images stretch to fit full stage */
     .layer {
       position: absolute;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      object-fit: cover; /* Keeps proportions clean */
-      pointer-events: none; /* Allows clicks/scans to go through */
+      object-fit: cover;
+      pointer-events: none;
     }
 
-    /* Layer Stacking Order (z-index) */
+    /* Always visible base layers */
     .layer-bg  { z-index: 1; }
     .layer-shl { z-index: 2; }
-    .layer-drd { z-index: 3; }
-    .layer-spm { z-index: 4; }
-    .layer-cap { z-index: 5; }
+
+    /* Animated Character Layers */
+    .layer-char {
+      opacity: 0; /* Hidden by default */
+      animation-name: fadeInChar;
+      animation-duration: 20s; /* Each takes 20 seconds to fade in */
+      animation-fill-mode: forwards; /* Stays fully visible after fading in */
+      animation-timing-function: ease-in-out;
+    }
+
+    .layer-drd { 
+      z-index: 3; 
+      animation-delay: 0s; /* Starts immediately */
+    }
+
+    .layer-spm { 
+      z-index: 4; 
+      animation-delay: 20s; /* Starts after Doctor Doom finishes */
+    }
+
+    .layer-cap { 
+      z-index: 5; 
+      animation-delay: 40s; /* Starts after Spider-Man finishes */
+    }
+
+    @keyframes fadeInChar {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
 
     /* -----------------------------------------------------------
-       2. Floating UI Container (Sitting on top of all layers)
+       2. Floating UI Container (On top of all layers)
        ----------------------------------------------------------- */
     .ui-overlay {
       position: relative;
-      z-index: 10; /* Above all images */
+      z-index: 10;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -123,14 +149,13 @@
 <body>
 
   <div class="stage-container">
-    <!-- STACKED LAYERS (ORDER: BG -> SHL -> DRD -> SPM -> CAP) -->
     <img src="bg.jpg"  alt="Background" class="layer layer-bg">
     <img src="shl.png" alt="Silhouette" class="layer layer-shl">
-    <img src="drd.png" alt="Doctor Doom" class="layer layer-drd">
-    <img src="spm.png" alt="Spider-Man" class="layer layer-spm">
-    <img src="cap.png" alt="Captain America" class="layer layer-cap">
 
-    <!-- FLOATING UI ON TOP -->
+    <img src="drd.png" alt="Doctor Doom" class="layer layer-char layer-drd">
+    <img src="spm.png" alt="Spider-Man" class="layer layer-char layer-spm">
+    <img src="cap.png" alt="Captain America" class="layer layer-char layer-cap">
+
     <div class="ui-overlay">
       <h1 id="title">A Waiting Game...</h1>
 
@@ -150,7 +175,7 @@
   </div>
 
   <script>
-    // Test countdown set to 1 minute from load
+    // Set timer to 1 minute (60 seconds = 20s for DRD + 20s for SPM + 20s for CAP)
     const targetDate = new Date(Date.now() + 1 * 60 * 1000).getTime();
 
     function updateCountdown() {
