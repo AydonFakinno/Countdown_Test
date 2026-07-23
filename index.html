@@ -55,6 +55,11 @@
       pointer-events: none;
     }
 
+    /* TOP CUTOUT / OVERLAY LAYER */
+    .layer-cutout {
+      z-index: 4;
+    }
+
     /* Floating UI Container */
     .ui-overlay {
       position: relative;
@@ -131,6 +136,9 @@
     <!-- CANVAS WHERE PIXELATED CHARACTERS ARE DRAWN -->
     <canvas id="character-canvas"></canvas>
 
+    <!-- CUTOUT OVERLAY LAYER -->
+    <img src="cutout.png" alt="Cutout Frame" class="layer layer-cutout">
+
     <!-- FLOATING UI ON TOP -->
     <div class="ui-overlay">
       <h1 id="title">A Waiting Game...</h1>
@@ -152,10 +160,14 @@
 
   <script>
     // -----------------------------------------------------------
-    // 1. Setup Canvas & Load Character Images
+    // 1. Setup Canvas & Reusable Off-screen Buffer
     // -----------------------------------------------------------
     const canvas = document.getElementById('character-canvas');
     const ctx = canvas.getContext('2d');
+
+    // Single persistent buffer to eliminate Garbage Collection lag
+    const bufferCanvas = document.createElement('canvas');
+    const bufferCtx = bufferCanvas.getContext('2d');
 
     function resizeCanvas() {
       canvas.width = window.innerWidth;
@@ -176,7 +188,7 @@
     });
 
     // -----------------------------------------------------------
-    // 2. Timeline, Cross-fading Pixelation & Blur Logic
+    // 2. Timeline & Flicker-Free Render Loop
     // -----------------------------------------------------------
     const DURATION_PER_CHAR = 20; // 20 seconds each
     const startTime = Date.now();
@@ -197,21 +209,6 @@
       requestAnimationFrame(renderLoop);
     }
 
-    // Helper to render a single pixelated layer to a buffer
-    function createPixelLayer(img, factor, renderW, renderH) {
-      const scaledW = Math.max(1, Math.floor(renderW * factor));
-      const scaledH = Math.max(1, Math.floor(renderH * factor));
-
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = scaledW;
-      tempCanvas.height = scaledH;
-      const tempCtx = tempCanvas.getContext('2d');
-      tempCtx.imageSmoothingEnabled = false;
-      tempCtx.drawImage(img, 0, 0, scaledW, scaledH);
-
-      return tempCanvas;
-    }
-
     function drawPixelatedImage(imgObj, elapsed, delay) {
       if (!imgObj.loaded) return;
 
@@ -221,34 +218,19 @@
       const progress = Math.min(charElapsed / DURATION_PER_CHAR, 1);
       const overallOpacity = progress;
 
-      // Exponential progression mapping (0 -> 1)
+      // Exponential progress curve (0 -> 1)
       const expProgress = (Math.pow(10, progress) - 1) / 9; 
-      
-      // Compute continuous factor
-      const continuousFactor = 0.012 + Math.pow(expProgress, 4) * 0.988;
+      const factor = 0.012 + Math.pow(expProgress, 4) * 0.988;
 
-      // ---------------------------------------------------------
-      // Cross-fade Math between Discrete Pixel Steps
-      // ---------------------------------------------------------
-      // Step value determines how granular the pixel transitions are
-      const stepVal = continuousFactor * 30; 
-      const lowerStep = Math.floor(stepVal) / 30;
-      const upperStep = Math.ceil(stepVal) / 30;
-      const blendRatio = stepVal - Math.floor(stepVal); // 0.0 to 1.0 transition ratio
-
-      // Dynamic Blur Logic (35px down to 0px at ~17 seconds)
-      let blurPx = 0;
-      const blurCutoff = 0.85; 
-      if (progress < blurCutoff) {
-        blurPx = (1 - (progress / blurCutoff)) * 35;
-      }
+      // Continuous Quadratic Blur Falloff (No cutoff abruptness)
+      const maxBlur = 20;
+      const blurPx = Math.pow(1 - progress, 2) * maxBlur;
 
       const canvasW = canvas.width;
       const canvasH = canvas.height;
       const imgW = imgObj.img.naturalWidth;
       const imgH = imgObj.img.naturalHeight;
 
-      // Object-fit: cover coordinate calculations
       const imgRatio = imgW / imgH;
       const canvasRatio = canvasW / canvasH;
 
@@ -266,27 +248,28 @@
         offsetY = 0;
       }
 
+      // 1. Rescale the shared buffer canvas (clears it automatically)
+      const scaledW = Math.max(1, Math.floor(renderW * factor));
+      const scaledH = Math.max(1, Math.floor(renderH * factor));
+      
+      bufferCanvas.width = scaledW;
+      bufferCanvas.height = scaledH;
+
+      bufferCtx.imageSmoothingEnabled = false;
+      bufferCtx.drawImage(imgObj.img, 0, 0, scaledW, scaledH);
+
+      // 2. Draw to main canvas
       ctx.save();
       ctx.globalAlpha = overallOpacity;
 
-      if (blurPx > 0) {
-        ctx.filter = `blur(${blurPx.toFixed(1)}px)`;
+      if (blurPx > 0.05) {
+        ctx.filter = `blur(${blurPx.toFixed(2)}px)`;
       } else {
         ctx.filter = 'none';
       }
 
       ctx.imageSmoothingEnabled = false;
-
-      // 1. Draw Lower Resolution Step Layer
-      const layer1 = createPixelLayer(imgObj.img, lowerStep, renderW, renderH);
-      ctx.drawImage(layer1, 0, 0, layer1.width, layer1.height, offsetX, offsetY, renderW, renderH);
-
-      // 2. Blend Upper Resolution Step Layer over top smoothly
-      if (upperStep > lowerStep && blendRatio > 0) {
-        ctx.globalAlpha = overallOpacity * blendRatio; // Cross-fades layer 2 in
-        const layer2 = createPixelLayer(imgObj.img, upperStep, renderW, renderH);
-        ctx.drawImage(layer2, 0, 0, layer2.width, layer2.height, offsetX, offsetY, renderW, renderH);
-      }
+      ctx.drawImage(bufferCanvas, 0, 0, scaledW, scaledH, offsetX, offsetY, renderW, renderH);
 
       ctx.restore();
     }
