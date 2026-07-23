@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Countdown</title>
+  <title>Countdown Test</title>
   <style>
     body {
       margin: 0;
@@ -56,25 +56,24 @@
     }
 
     .message {
-      font-size: 1.5rem;
+      font-size: 2rem;
+      font-weight: bold;
       color: #00e676;
       display: none;
+      animation: fadeIn 1s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: scale(0.9); }
+      to { opacity: 1; transform: scale(1); }
     }
   </style>
 </head>
 <body>
 
-  <h1 id="title">Countdown</h1>
+  <h1 id="title">Testing the Countdown</h1>
 
   <div class="countdown-container" id="countdown">
-    <div class="time-box">
-      <div class="number" id="days">00</div>
-      <div class="label">Days</div>
-    </div>
-    <div class="time-box">
-      <div class="number" id="hours">00</div>
-      <div class="label">Hours</div>
-    </div>
     <div class="time-box">
       <div class="number" id="minutes">00</div>
       <div class="label">Minutes</div>
@@ -85,17 +84,17 @@
     </div>
   </div>
 
-  <div class="message" id="finished-message">The wait is over! 🎉</div>
+  <div class="message" id="finished-message">🎁 SURPRISE! The countdown has finished! 🎁</div>
 
   <script>
-    // SET YOUR TARGET DATE & TIME HERE (YYYY-MM-DDTHH:MM:SS format)
-    const targetDate = new Date("2026-12-31T00:00:00").getTime();
+    // Sets target time to 2 minutes from right now
+    const targetDate = new Date(Date.now() + 2 * 60 * 1000).getTime();
 
     function updateCountdown() {
       const now = new Date().getTime();
       const distance = targetDate - now;
 
-      if (distance < 0) {
+      if (distance <= 0) {
         document.getElementById("countdown").style.display = "none";
         document.getElementById("title").style.display = "none";
         document.getElementById("finished-message").style.display = "block";
@@ -103,13 +102,9 @@
         return;
       }
 
-      const days = Math.floor(distance / (1000 * 60 * 60 * 24));
-      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
       const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((distance % (1000 * 60)) / 1000);
 
-      document.getElementById("days").innerText = String(days).padStart(2, '0');
-      document.getElementById("hours").innerText = String(hours).padStart(2, '0');
       document.getElementById("minutes").innerText = String(minutes).padStart(2, '0');
       document.getElementById("seconds").innerText = String(seconds).padStart(2, '0');
     }
